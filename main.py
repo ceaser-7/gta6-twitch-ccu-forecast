@@ -193,6 +193,15 @@ def fit_hour(target, donors, hour, use_y):
     sxx = sum(w * (x - mx) ** 2 for w, x in zip(ws, xs))
     sxy = sum(w * (x - mx) * (y - my) for w, x, y in zip(ws, xs, ys))
     slope = sxy / sxx if sxx > 1e-9 else 0.0
+    # v3 (Sol mission): the size curve is concave — its slope flattens toward the
+    # top (global slope -0.93, slope above x=12 is -0.17). A local-linear fit at a
+    # target above every donor extrapolates the window's steeper slope, so it
+    # under-predicts the ratios. Shrink the slope hyperbolically with the
+    # extrapolation distance over the donors' max x; validated on leave-top-out
+    # (top3 0.1721 -> 0.1206, top5 0.1722 -> 0.1297). No effect on in-range targets.
+    over = max(0.0, target["x"] - max(xs))
+    if over > 0:
+        slope = slope / (1.0 + 0.7 * over)
     pred = my - slope * (mx - target["x"])
     lo, hi = min(ys), max(ys)
     pred = min(hi, max(lo, pred))
